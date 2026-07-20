@@ -23,7 +23,18 @@ var nextID = 4
 
 func listMenu(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(menus)
+    t := r.URL.Query().Get("type")
+    if t == "" {
+        json.NewEncoder(w).Encode(menus)
+        return
+    }
+    filtered := []Menu{}
+    for _, m := range menus {
+        if m.Type == t {
+            filtered = append(filtered, m)
+        }
+    }
+    json.NewEncoder(w).Encode(filtered)
 }
 
 func main() {
@@ -33,7 +44,7 @@ func main() {
     mux.HandleFunc("POST /menu", createMenu)
     mux.HandleFunc("DELETE /menu/{id}", deleteMenu)
 
-    http.ListenAndServe(":8080", mux)
+    http.ListenAndServe(":8080", withCORS(mux))
 }
 func getMenu(w http.ResponseWriter, r *http.Request) {
     id, err := strconv.Atoi(r.PathValue("id"))
@@ -99,4 +110,18 @@ func deleteMenu(w http.ResponseWriter, r *http.Request) {
         }
     }
     writeError(w, http.StatusNotFound, "MENU_NOT_FOUND", "ไม่พบเมนูหมายเลขนี้")
+}
+
+func withCORS(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+        w.Header().Set("Access-Control-Allow-Methods",
+            "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+        w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+        if r.Method == http.MethodOptions {
+            w.WriteHeader(http.StatusNoContent)
+            return
+        }
+        next.ServeHTTP(w, r)
+    })
 }
